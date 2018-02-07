@@ -22,9 +22,38 @@ PrintConfigDef::PrintConfigDef()
     // Maximum extruder temperature, bumped to 1500 to support printing of glass.
     const int max_temp = 1500;
 
-	def = this->add("avoid_crossing_perimeters", coBool);
-    def->label = L("Avoid crossing perimeters");
-	def->tooltip = L("Optimize travel moves in order to minimize the crossing of perimeters. "
+	//! On purpose of localization there is that changes at text of tooltip and sidetext:
+	//! - ° -> \u00B0
+	//! - ² -> \u00B2
+	//! - ³ -> \u00B3
+
+    def = this->add("_locked", coBool);
+    def->label = _L("Preset file lock status");
+    def->tooltip = _L("Preset file lock status");
+    def->cli = "_locked!";
+    def->default_value = new ConfigOptionBool(false);
+
+    def = this->add("_version", coInt);
+    def->label = _L("Preset file version number");
+    def->tooltip = _L("Preset file version number");
+    def->cli = "_version=i";
+    def->default_value = new ConfigOptionInt(1);
+
+    def = this->add("_url", coString);
+    def->label = _L("Preset file update URL");
+    def->tooltip = _L("Preset file update URL");
+    def->cli = "_url=s";
+    def->default_value = new ConfigOptionString("");
+
+    def = this->add("_parent", coString);
+    def->label = _L("Preset file parent preset name");
+    def->tooltip = _L("Preset file parent preset name");
+    def->cli = "_parent=s";
+    def->default_value = new ConfigOptionString("");
+
+    def = this->add("avoid_crossing_perimeters", coBool);
+    def->label = _L("Avoid crossing perimeters");
+	def->tooltip = _L("Optimize travel moves in order to minimize the crossing of perimeters. "
                    "This is mostly useful with Bowden extruders which suffer from oozing. "
                    "This feature slows down both the print and the G-code generation.");
     def->cli = "avoid-crossing-perimeters!";

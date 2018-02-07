@@ -409,7 +409,14 @@ sub _init_menubar {
             wxTheApp->about;
         });
     }
-    
+
+    my $hokusMenu = Wx::Menu->new;
+    {
+        $self->_append_menu_item($hokusMenu, "Pokus", "Pokus", sub {
+            Slic3r::Http::download();
+        });
+    }
+
     # menubar
     # assign menubar to frame after appending items, otherwise special items
     # will not be handled correctly
@@ -424,6 +431,8 @@ sub _init_menubar {
         # (Select application language from the list of installed languages)
         Slic3r::GUI::add_debug_menu($menubar, $self->{lang_ch_event});
         $menubar->Append($helpMenu, L("&Help"));
+        $menubar->Append($hokusMenu, "Hoku&s");
+        # Add an optional debug menu. In production code, the add_debug_menu() call should do nothing.
         $self->SetMenuBar($menubar);
     }
 }

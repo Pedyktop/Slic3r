@@ -199,6 +199,8 @@ add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/GUI/2DBed.hpp
     ${LIBDIR}/slic3r/GUI/wxExtensions.cpp
     ${LIBDIR}/slic3r/GUI/wxExtensions.hpp
+    ${LIBDIR}/slic3r/Utils/Http.cpp
+    ${LIBDIR}/slic3r/Utils/Http.hpp
 )
 
 add_library(admesh STATIC
@@ -338,6 +340,7 @@ set(XS_XSP_FILES
     ${XSP_DIR}/Surface.xsp
     ${XSP_DIR}/SurfaceCollection.xsp
     ${XSP_DIR}/TriangleMesh.xsp
+    ${XSP_DIR}/Http.xsp
     ${XSP_DIR}/XS.xsp
 )
 foreach (file ${XS_XSP_FILES})
@@ -521,6 +524,9 @@ if (SLIC3R_PRUSACONTROL)
     add_definitions(-DSLIC3R_GUI -DSLIC3R_PRUS)
     target_link_libraries(XS ${wxWidgets_LIBRARIES})
 endif()
+
+target_link_libraries(XS -lssl -lcrypto)  # FIXME
+target_link_libraries(XS -lcurl)  # FIXME
 
 ## OPTIONAL packages
 
