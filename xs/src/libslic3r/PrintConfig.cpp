@@ -28,32 +28,32 @@ PrintConfigDef::PrintConfigDef()
 	//! - ³ -> \u00B3
 
     def = this->add("_locked", coBool);
-    def->label = _L("Preset file lock status");
-    def->tooltip = _L("Preset file lock status");
+    def->label = L("Preset file lock status");
+    def->tooltip = L("Preset file lock status");
     def->cli = "_locked!";
     def->default_value = new ConfigOptionBool(false);
 
     def = this->add("_version", coInt);
-    def->label = _L("Preset file version number");
-    def->tooltip = _L("Preset file version number");
+    def->label = L("Preset file version number");
+    def->tooltip = L("Preset file version number");
     def->cli = "_version=i";
     def->default_value = new ConfigOptionInt(1);
 
     def = this->add("_url", coString);
-    def->label = _L("Preset file update URL");
-    def->tooltip = _L("Preset file update URL");
+    def->label = L("Preset file update URL");
+    def->tooltip = L("Preset file update URL");
     def->cli = "_url=s";
     def->default_value = new ConfigOptionString("");
 
     def = this->add("_parent", coString);
-    def->label = _L("Preset file parent preset name");
-    def->tooltip = _L("Preset file parent preset name");
+    def->label = L("Preset file parent preset name");
+    def->tooltip = L("Preset file parent preset name");
     def->cli = "_parent=s";
     def->default_value = new ConfigOptionString("");
 
     def = this->add("avoid_crossing_perimeters", coBool);
-    def->label = _L("Avoid crossing perimeters");
-	def->tooltip = _L("Optimize travel moves in order to minimize the crossing of perimeters. "
+    def->label = L("Avoid crossing perimeters");
+	def->tooltip = L("Optimize travel moves in order to minimize the crossing of perimeters. "
                    "This is mostly useful with Bowden extruders which suffer from oozing. "
                    "This feature slows down both the print and the G-code generation.");
     def->cli = "avoid-crossing-perimeters!";
@@ -933,10 +933,17 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "octoprint-apikey=s";
     def->default_value = new ConfigOptionString("");
     
+    def = this->add("octoprint_cafile", coString);
+    def->label = "HTTPS CA file";
+    def->tooltip = "Custom CA certificate file can be specified for HTTPS OctoPrint connections, in crt/pem format. "
+                   "If left blank, the default OS CA certificate repository is used.";
+    def->cli = "octoprint-cafile=s";
+    def->default_value = new ConfigOptionString("");
+
     def = this->add("octoprint_host", coString);
-    def->label = L("Host or IP");
+    def->label = L("Hostname, IP or URL");
     def->tooltip = L("Slic3r can upload G-code files to OctoPrint. This field should contain "
-                   "the hostname or IP address of the OctoPrint instance.");
+                   "the hostname, IP address or URL of the OctoPrint instance.");
     def->cli = "octoprint-host=s";
     def->default_value = new ConfigOptionString("");
 

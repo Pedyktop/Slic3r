@@ -17,6 +17,8 @@
 
 #include <curl/curl.h>
 
+#include "OctoPrint.hpp"
+
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 namespace ssl = asio::ssl;
@@ -117,6 +119,10 @@ void Http::priv::http_perform()
     ::curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writecb);
     ::curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void*>(this));
 
+#ifndef NDEBUG
+    ::curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+#endif
+
     if (headerlist != nullptr) {
         ::curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
     }
@@ -138,7 +144,7 @@ void Http::priv::http_perform()
         };
 
         if (errorfn) {
-            errorfn(std::move(error), http_status);
+            errorfn(std::move(buffer), std::move(error), http_status);
         }
     } else {
         if (completefn) {
@@ -147,28 +153,31 @@ void Http::priv::http_perform()
     }
 }
 
-void Http::perform()
-{
-    auto self = shared_from_this();
-    auto io_thread = std::thread([self](){
-        self->p->http_perform();
-    });
-    p->io_thread = std::move(io_thread);
-}
+Http::Http(const std::string &url) : p(new priv(url)) {}
 
 
 // Public
 
-Http::Builder::Builder(const std::string &url) : p(new priv(url)) {}
+Http::Http(Http &&other) : p(std::move(other.p)) {}
 
-Http::Builder& Http::Builder::sizeLimit(size_t sizeLimit)
+Http::~Http()
 {
-    p->limit = sizeLimit;
+    if (p && p->io_thread.joinable()) {
+        p->io_thread.detach();
+    }
+}
+
+
+Http& Http::size_limit(size_t sizeLimit)
+{
+    if (p) { p->limit = sizeLimit; }
     return *this;
 }
 
-Http::Builder& Http::Builder::setHeader(std::string name, const std::string &value)
+Http& Http::header(std::string name, const std::string &value)
 {
+    if (!p) { return * this; }
+
     if (name.size() > 0) {
         name.append(": ").append(value);
     } else {
@@ -178,62 +187,81 @@ Http::Builder& Http::Builder::setHeader(std::string name, const std::string &val
     return *this;
 }
 
-Http::Builder& Http::Builder::removeHeader(std::string name)
+Http& Http::remove_header(std::string name)
 {
-    name.push_back(':');
-    p->headerlist = curl_slist_append(p->headerlist, name.c_str());
-    return *this;
-}
-
-
-
-Http::Builder& Http::Builder::formAdd(const std::string &name, const std::string &contents)
-{
-    curl_formadd(&p->form, &p->form_end,
-        CURLFORM_COPYNAME, name.c_str(),
-        CURLFORM_COPYCONTENTS, contents.c_str(),
-        CURLFORM_END
-    );
-    return *this;
-}
-
-Http::Builder& Http::Builder::formAddFile(const std::string &name, const std::string &filename)
-{
-    curl_formadd(&p->form, &p->form_end,
-        CURLFORM_COPYNAME, name.c_str(),
-        CURLFORM_FILE, filename.c_str(),
-        CURLFORM_CONTENTTYPE, "application/octet-stream",
-        CURLFORM_END
-    );
-    return *this;
-}
-
-Http::Builder& Http::Builder::onComplete(CompleteFn fn)
-{
-    p->completefn = std::move(fn);
-    return *this;
-}
-
-Http::Builder& Http::Builder::onError(ErrorFn fn)
-{
-    p->errorfn = std::move(fn);
-    return *this;
-}
-
-Http::Ptr Http::Builder::perform()
-{
-    auto http = std::make_shared<Http>(std::move(*this));
-    http->perform();
-    return http;
-}
-
-Http::Http(Http::Builder &&builder) : p(std::move(builder.p)) {}
-
-Http::~Http()
-{
-    if (p->io_thread.joinable()) {
-        p->io_thread.detach();
+    if (p) {
+        name.push_back(':');
+        p->headerlist = curl_slist_append(p->headerlist, name.c_str());
     }
+
+    return *this;
+}
+
+Http& Http::ca_file(const std::string &name)
+{
+    if (p) {
+        ::curl_easy_setopt(p->curl, CURLOPT_CAINFO, name.c_str());
+    }
+
+    return *this;
+}
+
+Http& Http::form_add(const std::string &name, const std::string &contents)
+{
+    if (p) {
+        ::curl_formadd(&p->form, &p->form_end,
+            CURLFORM_COPYNAME, name.c_str(),
+            CURLFORM_COPYCONTENTS, contents.c_str(),
+            CURLFORM_END
+        );
+    }
+
+    return *this;
+}
+
+Http& Http::form_add_file(const std::string &name, const std::string &filename)
+{
+    if (p) {
+        ::curl_formadd(&p->form, &p->form_end,
+            CURLFORM_COPYNAME, name.c_str(),
+            CURLFORM_FILE, filename.c_str(),
+            CURLFORM_CONTENTTYPE, "application/octet-stream",
+            CURLFORM_END
+        );
+    }
+
+    return *this;
+}
+
+Http& Http::on_complete(CompleteFn fn)
+{
+    if (p) { p->completefn = std::move(fn); }
+    return *this;
+}
+
+Http& Http::on_error(ErrorFn fn)
+{
+    if (p) { p->errorfn = std::move(fn); }
+    return *this;
+}
+
+Http::Ptr Http::perform()
+{
+    auto self = std::make_shared<Http>(std::move(*this));
+
+    if (self->p) {
+        auto io_thread = std::thread([self](){
+                self->p->http_perform();
+            });
+        self->p->io_thread = std::move(io_thread);
+    }
+
+    return self;
+}
+
+void Http::perform_sync()
+{
+    if (p) { p->http_perform(); }
 }
 
 void Http::download()     // TODO: remove
@@ -246,35 +274,36 @@ void Http::download()     // TODO: remove
     // static const std::string url{"http://httpbin.org/post"};
 
     // static const std::string url{"http://10.0.0.46/api/files"};
-    static const std::string url{"http://10.0.0.46/api/files/local"};
+    // static const std::string url{"http://10.0.0.46/api/files/local"};
 
     // auto http = Http::get(url)
-    auto http = Http::post(url)
-        .setHeader("X-Api-Key", "70E4CFD0E0D7423CB6B1CF055DBAEFA5")
-        .formAdd("print", "true")
-        .formAddFile("file", "/home/vojta/prog/tisk/jesterka/jesterka.gcode")
-        .onComplete([](std::string body, unsigned status) {
-            std::cerr << "Request complete! Status: " << status << std::endl
-                << "\n" << body << std::endl;
-        })
-        .onError([](std::string body, unsigned status) {
-            std::cerr << "Request error: `" << body << "`, status: "
-                << status << std::endl;
-        })
-        .perform();
+    // auto http = Http::post(url)
+    //     .setHeader("X-Api-Key", "70E4CFD0E0D7423CB6B1CF055DBAEFA5")
+    //     .formAdd("print", "true")
+    //     .formAddFile("file", "/home/vojta/prog/tisk/jesterka/jesterka.gcode")
+    //     .onComplete([](std::string body, unsigned status) {
+    //         std::cerr << "Request complete! Status: " << status << std::endl
+    //             << "\n" << body << std::endl;
+    //     })
+    //     .onError([](std::string body, unsigned status) {
+    //         std::cerr << "Request error: `" << body << "`, status: "
+    //             << status << std::endl;
+    //     })
+    //     .perform();
+
+    // send_gcode("10.0.0.46", "70E4CFD0E0D7423CB6B1CF055DBAEFA5", "/home/vojta/prog/tisk/jesterka/jesterka.gcode");
 }
 
-Http::Builder Http::get(std::string url)
+Http Http::get(std::string url)
 {
-    Builder builder{std::move(url)};
-    return builder;
+    return std::move(Http{std::move(url)});
 }
 
-Http::Builder Http::post(std::string url)
+Http Http::post(std::string url)
 {
-    Builder builder{std::move(url)};
-    curl_easy_setopt(builder.p->curl, CURLOPT_POST, 1L);
-    return builder;
+    Http http{std::move(url)};
+    curl_easy_setopt(http.p->curl, CURLOPT_POST, 1L);
+    return http;
 }
 
 
