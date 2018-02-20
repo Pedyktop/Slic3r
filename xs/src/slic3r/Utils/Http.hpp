@@ -45,7 +45,7 @@ public:
     Ptr perform();
     void perform_sync();
 
-    static void download();   // TODO: remove
+    static void pokus();   // TODO: remove
 private:
     Http(const std::string &url);
 

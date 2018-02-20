@@ -6,6 +6,7 @@
 #include <iostream>
 #include <tuple>
 #include <boost/format.hpp>
+// TODO: cleanup:
 #include <boost/asio/connect.hpp>
 #include <boost/asio/use_future.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -18,7 +19,9 @@
 #include <curl/curl.h>
 
 #include "OctoPrint.hpp"
+#include "Bonjour.hpp"   // XXX
 
+// TODO: cleanup:
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 namespace ssl = asio::ssl;
@@ -264,8 +267,10 @@ void Http::perform_sync()
     if (p) { p->http_perform(); }
 }
 
-void Http::download()     // TODO: remove
+void Http::pokus()     // TODO: remove
 {
+    Bonjour::pokus();
+
     // static const std::string url{"https://raw.githubusercontent.com/prusa3d/Slic3r-settings/master/Slic3r%20settings%20MK2S%20MK2MM%20and%20MK3/slic3r.ini"};
 
     // static const std::string url{"https://httpbin.org/status/500"};

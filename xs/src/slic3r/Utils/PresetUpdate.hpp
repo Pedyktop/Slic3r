@@ -5,6 +5,14 @@
 namespace Slic3r {
 
 
+// class PresetUpdate {
+// };
+
+namespace Utils {
+
+void preset_update_check();
+
+}
 
 }
 

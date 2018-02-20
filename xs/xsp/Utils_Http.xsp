@@ -6,5 +6,5 @@
 %}
 
 %name{Slic3r::Http} class Http {
-    static void download();
+    static void pokus();
 };

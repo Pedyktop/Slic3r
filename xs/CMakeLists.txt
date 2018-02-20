@@ -15,6 +15,12 @@ if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUXX)
     add_compile_options(-fext-numeric-literals)
 endif()
 
+# XXX
+# if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+#     # If using GCC or Clang, enable ASan on debug builds
+#     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
+# endif()
+
 # Where all the bundled libraries reside?
 set(LIBDIR ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 # For the bundled boost libraries (boost::nowide)
@@ -203,6 +209,10 @@ add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/Utils/Http.hpp
     ${LIBDIR}/slic3r/Utils/OctoPrint.cpp
     ${LIBDIR}/slic3r/Utils/OctoPrint.hpp
+    ${LIBDIR}/slic3r/Utils/PresetUpdate.cpp
+    ${LIBDIR}/slic3r/Utils/PresetUpdate.hpp
+    ${LIBDIR}/slic3r/Utils/Bonjour.cpp
+    ${LIBDIR}/slic3r/Utils/Bonjour.hpp
 )
 
 add_library(admesh STATIC
@@ -344,6 +354,7 @@ set(XS_XSP_FILES
     ${XSP_DIR}/TriangleMesh.xsp
     ${XSP_DIR}/Utils_Http.xsp
     ${XSP_DIR}/Utils_OctoPrint.xsp
+    ${XSP_DIR}/Utils_PresetUpdate.xsp
     ${XSP_DIR}/XS.xsp
 )
 foreach (file ${XS_XSP_FILES})
@@ -528,7 +539,6 @@ if (SLIC3R_PRUSACONTROL)
     target_link_libraries(XS ${wxWidgets_LIBRARIES})
 endif()
 
-target_link_libraries(XS -lssl -lcrypto)  # FIXME
 target_link_libraries(XS -lcurl)  # FIXME
 
 ## OPTIONAL packages
