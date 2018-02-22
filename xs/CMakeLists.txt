@@ -539,7 +539,10 @@ if (SLIC3R_PRUSACONTROL)
     target_link_libraries(XS ${wxWidgets_LIBRARIES})
 endif()
 
-target_link_libraries(XS -lcurl)  # FIXME
+find_package(CURL REQUIRED)
+include_directories(${CURL_INCLUDE_DIRS})
+target_link_libraries(XS ${CURL_LIBRARIES})
+
 
 ## OPTIONAL packages
 
