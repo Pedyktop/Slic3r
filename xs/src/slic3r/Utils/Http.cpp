@@ -6,28 +6,11 @@
 #include <iostream>
 #include <tuple>
 #include <boost/format.hpp>
-// TODO: cleanup:
-#include <boost/asio/connect.hpp>
-#include <boost/asio/use_future.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/error.hpp>
-#include <boost/asio/ssl/stream.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
 
 #include <curl/curl.h>
 
 #include "OctoPrint.hpp"
 #include "Bonjour.hpp"   // XXX
-
-// TODO: cleanup:
-namespace asio = boost::asio;
-using tcp = asio::ip::tcp;
-namespace ssl = asio::ssl;
-namespace http = boost::beast::http;
-using boost::beast::flat_buffer;
-using boost::system::error_code;
 
 
 // XXX: style

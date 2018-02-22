@@ -297,7 +297,7 @@ struct DnsRR_SRV
         res.port = endian::big_to_native(data_16[2]);
 
         ptrdiff_t offset = dataoffset + 6;
-        auto hostname{std::move(DnsName::decode(buffer, offset))};   // FIXME: Ditto elsewhere
+        auto hostname(std::move(DnsName::decode(buffer, offset)));   // FIXME: Ditto elsewhere
 
         if (hostname) {
             res.hostname = std::move(*hostname);
@@ -415,8 +415,8 @@ void pokus()
     printf("RQ ID: %hu = %hx -> [%hhx, %hhx]\n", brq.id, brq.id, brq.data[0], brq.data[1]);
 
     try {
-        boost::asio::io_context io_context;
-        udp::socket socket(io_context);
+        boost::asio::io_service io_service;
+        udp::socket socket(io_service);
         socket.open(udp::v4());
         socket.set_option(udp::socket::reuse_address(true));
         udp::endpoint mcast(BonjourRequest::MCAST_IP4, BonjourRequest::MCAST_PORT);

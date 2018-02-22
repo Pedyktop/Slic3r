@@ -5,9 +5,6 @@
 #include <string>
 #include <functional>
 
-#include <boost/system/error_code.hpp>
-#include <boost/beast/http/verb.hpp>
-
 
 namespace Slic3r {
 
