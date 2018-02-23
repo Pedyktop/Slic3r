@@ -3,7 +3,6 @@
 %{
 #include <xsinit.h>
 #include "slic3r/Utils/OctoPrint.hpp"
-#include "libslic3r/PrintConfig.hpp"
 %}
 
 %name{Slic3r::OctoPrint} class OctoPrint {

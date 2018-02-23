@@ -44,6 +44,13 @@ find_package(Perl REQUIRED)
 
 add_subdirectory(xs)
 
+if (MSVC)
+	# By default the startup project in MSVC is the 'ALL_BUILD' cmake-created project,
+	# but we want 'slic3r' as the startup one because debugging run command is associated with it.
+	# (Unfortunatelly it cannot be associated with ALL_BUILD using CMake.)
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT slic3r)
+endif ()
+
 enable_testing ()
 get_filename_component(PERL_BIN_PATH "${PERL_EXECUTABLE}" DIRECTORY)
 add_test (NAME xs COMMAND "${PERL_EXECUTABLE}" ${PERL_BIN_PATH}/prove -I ${PROJECT_SOURCE_DIR}/local-lib/lib/perl5 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/xs)

@@ -214,7 +214,7 @@ bool Preset::update_compatible_with_printer(const Preset &active_printer, const 
 
 const std::vector<std::string>& Preset::common_options()
 {
-    static std::vector<std::string> s_opts {
+    static const std::vector<std::string> s_opts {
         "_locked", "_version", "_url", "_parent"
     };
     return s_opts;
@@ -222,7 +222,7 @@ const std::vector<std::string>& Preset::common_options()
 
 const std::vector<std::string>& Preset::print_options()
 {
-    static std::vector<std::string> s_opts { [](){
+    static const std::vector<std::string> s_opts { [](){
         std::vector<std::string> v { Preset::common_options() };
         v.insert(v.end(), {
             "layer_height", "first_layer_height", "perimeters", "spiral_vase", "top_solid_layers", "bottom_solid_layers",
@@ -256,7 +256,7 @@ const std::vector<std::string>& Preset::print_options()
 
 const std::vector<std::string>& Preset::filament_options()
 {
-    static std::vector<std::string> s_opts { [](){
+    static const std::vector<std::string> s_opts { [](){
         std::vector<std::string> v { Preset::common_options() };
         v.insert(v.end(), {
             "filament_colour", "filament_diameter", "filament_type", "filament_soluble", "filament_notes", "filament_max_volumetric_speed",
@@ -273,16 +273,16 @@ const std::vector<std::string>& Preset::filament_options()
 
 const std::vector<std::string>& Preset::printer_options()
 {
-    static std::vector<std::string> s_opts { [](){
-        std::vector<std::string> v { Preset::common_options() };
+    static const std::vector<std::string> s_opts{ [](){
+        std::vector<std::string> v{ Preset::common_options() };
         v.insert(v.end(), {
             "bed_shape", "z_offset", "gcode_flavor", "use_relative_e_distances", "serial_port", "serial_speed",
             "octoprint_host", "octoprint_apikey", "octoprint_cafile", "use_firmware_retraction", "use_volumetric_e", "variable_layer_height",
             "single_extruder_multi_material", "start_gcode", "end_gcode", "before_layer_gcode", "layer_gcode", "toolchange_gcode",
             "between_objects_gcode", "printer_notes"
         });
-        v.insert(s_opts.end(), Preset::nozzle_options().begin(), Preset::nozzle_options().end());
-        return v;
+        v.insert(v.end(), Preset::nozzle_options().begin(), Preset::nozzle_options().end());
+        return std::move(v);
     }() };
     return s_opts;
 }
@@ -290,7 +290,7 @@ const std::vector<std::string>& Preset::printer_options()
 const std::vector<std::string>& Preset::nozzle_options()
 {
     // ConfigOptionFloats, ConfigOptionPercents, ConfigOptionBools, ConfigOptionStrings
-    static std::vector<std::string> s_opts {
+    static const std::vector<std::string> s_opts {
         "nozzle_diameter", "min_layer_height", "max_layer_height", "extruder_offset",
         "retract_length", "retract_lift", "retract_lift_above", "retract_lift_below", "retract_speed", "deretract_speed",
         "retract_before_wipe", "retract_restart_extra", "retract_before_travel", "wipe",
