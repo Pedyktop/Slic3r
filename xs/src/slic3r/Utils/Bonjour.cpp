@@ -1,6 +1,5 @@
 #include "Bonjour.hpp"
 
-#include <cstdio>   // XXX
 #include <cstdint>
 #include <algorithm>
 #include <unordered_map>
@@ -8,12 +7,13 @@
 #include <vector>
 #include <string>
 #include <random>
+#include <thread>
 #include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio.hpp>
-
-#include <iostream>   // XXX
+#include <boost/date_time/posix_time/posix_time_duration.hpp>
+#include <boost/format.hpp>
 
 using boost::optional;
 using boost::system::error_code;
@@ -22,34 +22,14 @@ namespace asio = boost::asio;
 using boost::asio::ip::udp;
 
 
-// TODO: Explain! Explain! Explain!
 // TODO: Fuzzing test
-// FIXME: integer warnings
-
 
 namespace Slic3r {
 
 
-static const unsigned char mdns_answer[] =
-{
-    /* 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0xb8, 0x27, 0xeb, 0x1a, 0x58, 0xf8, 0x00, 0x00, 0x08, 0x00,
-    0x45, 0x00, 0x00, 0xd3, 0xf7, 0x26, 0x40, 0x00, 0xff, 0x11, 0xdf, 0x4d, 0x0a, 0x18, 0xc8, 0x3b,
-    0x0a, 0x18, 0xc8, 0x39, 0x14, 0xe9, 0xb0, 0x39, 0x00, 0xbf, 0x27, 0xff, */ 0xee, 0x1b, 0x84, 0x00,
-    0x00, 0x01, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x05, 0x5f, 0x68, 0x74, 0x74, 0x70, 0x04, 0x5f,
-    0x74, 0x63, 0x70, 0x05, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x00, 0x00, 0x0c, 0x00, 0x01, 0xc0, 0x0c,
-    0x00, 0x0c, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x2c, 0x29, 0x4f, 0x63, 0x74, 0x6f, 0x50,
-    0x72, 0x69, 0x6e, 0x74, 0x20, 0x69, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x20, 0x22, 0x6f,
-    0x63, 0x74, 0x6f, 0x70, 0x72, 0x69, 0x6e, 0x74, 0x2d, 0x76, 0x6b, 0x2d, 0x74, 0x65, 0x73, 0x74,
-    0x69, 0x6e, 0x67, 0x22, 0xc0, 0x0c, 0xc0, 0x2e, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0a,
-    0x00, 0x07, 0x06, 0x70, 0x61, 0x74, 0x68, 0x3d, 0x2f, 0xc0, 0x2e, 0x00, 0x21, 0x00, 0x01, 0x00,
-    0x00, 0x00, 0x0a, 0x00, 0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x09, 0x6f, 0x63, 0x74, 0x6f,
-    0x70, 0x69, 0x2d, 0x76, 0x6b, 0xc0, 0x17, 0xc0, 0x7f, 0x00, 0x1c, 0x00, 0x01, 0x00, 0x00, 0x00,
-    0x0a, 0x00, 0x10, 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x19, 0xbd, 0xb6, 0xa5,
-    0x75, 0xd9, 0xb6, 0xc0, 0x7f, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x04, 0x0a,
-    0x18, 0xc8, 0x3b,
-};
-
-
+// Miniman implementation of a MDNS client
+// This implementation is extremely simple, only the bits that are useful
+// for very basic MDNS discovery are present.
 
 struct DnsName: public std::string
 {
@@ -71,7 +51,7 @@ struct DnsName: public std::string
         }
 
         DnsName res;
-        const auto size = buffer.size();
+        const ptrdiff_t bsize = buffer.size();
 
         while (true) {
             const char* ptr = buffer.data() + offset;
@@ -97,7 +77,7 @@ struct DnsName: public std::string
             } else {
                 // This is a regular label
                 len &= 0x3f;
-                if (len + offset + 1 >= size) {
+                if (len + offset + 1 >= bsize) {
                     return boost::none;
                 }
 
@@ -153,6 +133,10 @@ struct DnsHeader
         res.arcount = endian::big_to_native(data_16[5]);
         return res;
     }
+
+    uint32_t rrcount() const {
+        return ancount + nscount + arcount;
+    }
 };
 
 struct DnsQuestion
@@ -203,14 +187,16 @@ struct DnsResource
         ttl(0)
     {}
 
-    static optional<DnsResource> decode(const std::vector<char> &buffer, ptrdiff_t &offset, ptrdiff_t &dataoffset)  // TODO: ref offset?
+    static optional<DnsResource> decode(const std::vector<char> &buffer, ptrdiff_t &offset, ptrdiff_t &dataoffset)
     {
         auto rname = DnsName::decode(buffer, offset);
         if (!rname) {
             return boost::none;
         }
 
-        if (offset + 10 >= buffer.size()) {
+        const ptrdiff_t bsize = buffer.size();
+
+        if (offset + 10 >= bsize) {
             return boost::none;
         }
 
@@ -223,7 +209,7 @@ struct DnsResource
         uint16_t rdlength = endian::big_to_native(data_16[4]);
 
         offset += 10;
-        if (offset + rdlength > buffer.size()) {
+        if (offset + rdlength > bsize) {
             return boost::none;
         }
 
@@ -281,6 +267,8 @@ struct DnsRR_SRV
     uint16_t priority;
     uint16_t weight;
     uint16_t port;
+    std::string name;
+    std::string service;
     DnsName hostname;
 
     static void decode(std::vector<DnsRR_SRV> &results, const std::vector<char> &buffer, const DnsResource &rr, ptrdiff_t dataoffset)
@@ -291,13 +279,23 @@ struct DnsRR_SRV
 
         DnsRR_SRV res;
 
+        {
+            const auto dot_pos = rr.name.find_first_of('.');
+            if (dot_pos > 0 && dot_pos < rr.name.size() - 1) {
+                res.name = rr.name.substr(0, dot_pos);
+                res.service = rr.name.substr(dot_pos + 1);
+            } else {
+                return;
+            }
+        }
+
         const uint16_t *data_16 = reinterpret_cast<const uint16_t*>(rr.data.data());
         res.priority = endian::big_to_native(data_16[0]);
         res.weight = endian::big_to_native(data_16[1]);
         res.port = endian::big_to_native(data_16[2]);
 
         ptrdiff_t offset = dataoffset + 6;
-        auto hostname(std::move(DnsName::decode(buffer, offset)));   // FIXME: Ditto elsewhere
+        auto hostname = DnsName::decode(buffer, offset);
 
         if (hostname) {
             res.hostname = std::move(*hostname);
@@ -345,7 +343,7 @@ struct DnsMessage
             res.question = DnsQuestion::decode(buffer, offset);
         }
 
-        for (unsigned i = 0; i < res.header.ancount; i++) {
+        for (unsigned i = 0; i < res.header.rrcount(); i++) {
             ptrdiff_t dataoffset = 0;
             auto rr = DnsResource::decode(buffer, offset, dataoffset);
             if (!rr) {
@@ -380,7 +378,13 @@ struct BonjourRequest
     uint16_t id;
     std::vector<char> data;
 
-    BonjourRequest();
+    static optional<BonjourRequest> make(const std::string &service, const std::string &protocol);
+
+private:
+    BonjourRequest(uint16_t id, std::vector<char> &&data) :
+        id(id),
+        data(std::move(data))
+    {}
 };
 
 const asio::ip::address_v4 BonjourRequest::MCAST_IP4{0xe00000fb};
@@ -392,27 +396,110 @@ const char BonjourRequest::rq_template[] = {
     0x00, 0x01,
 };
 
-BonjourRequest::BonjourRequest() :
-    id(0),
-    data(rq_template, rq_template + sizeof(rq_template))
+optional<BonjourRequest> BonjourRequest::make(const std::string &service, const std::string &protocol)
 {
+    if (service.size() > 15 || protocol.size() > 15) {
+        return boost::none;
+    }
+
     std::random_device dev;
     std::uniform_int_distribution<uint16_t> dist;
-    id = dist(dev);
-
+    uint16_t id = dist(dev);
     uint16_t id_big = endian::native_to_big(id);
     const char *id_char = reinterpret_cast<char*>(&id_big);
-    data[0] = id_char[0];
-    data[1] = id_char[1];
+
+    std::vector<char> data;
+    data.reserve(service.size() + 18);
+
+    // Add the transaction ID
+    data.push_back(id_char[0]);
+    data.push_back(id_char[1]);
+
+    // Add metadata
+    static const char rq_meta[] = {
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    std::copy(rq_meta, rq_meta + sizeof(rq_meta), std::back_inserter(data));
+
+    // Add PTR query name
+    data.push_back(service.size() + 1);
+    data.push_back('_');
+    data.insert(data.end(), service.begin(), service.end());
+    data.push_back(protocol.size() + 1);
+    data.push_back('_');
+    data.insert(data.end(), protocol.begin(), protocol.end());
+
+    // Add the rest of PTR record
+    static const char ptr_tail[] = {
+        0x05, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x00, 0x00, 0x0c, 0x00, 0x01,
+    };
+    std::copy(ptr_tail, ptr_tail + sizeof(ptr_tail), std::back_inserter(data));
+
+    return BonjourRequest(id, std::move(data));
 }
 
 
+// API - private part
 
-namespace Bonjour {
-void pokus()
+struct Bonjour::priv
 {
-    BonjourRequest brq;
-    printf("RQ ID: %hu = %hx -> [%hhx, %hhx]\n", brq.id, brq.id, brq.data[0], brq.data[1]);
+    const std::string service;
+    const std::string protocol;
+    const std::string service_dn;
+    unsigned timeout;
+    uint16_t rq_id;
+
+    std::vector<char> buffer;
+    std::thread io_thread;
+    Bonjour::ReplyFn replyfn;
+    Bonjour::CompleteFn completefn;
+
+    priv(std::string service, std::string protocol);
+
+    void udp_receive(const error_code &error, size_t bytes);
+    void lookup_perform();
+};
+
+Bonjour::priv::priv(std::string service, std::string protocol) :
+    service(std::move(service)),
+    protocol(std::move(protocol)),
+    service_dn((boost::format("_%1%._%2%.local") % this->service % this->protocol).str()),
+    timeout(10),
+    rq_id(0)
+{
+    buffer.resize(DnsMessage::MAX_SIZE);
+}
+
+void Bonjour::priv::udp_receive(const error_code &error, size_t bytes)
+{
+    if (error || bytes == 0 || !replyfn) {
+        return;
+    }
+
+    buffer.resize(bytes);
+    const auto dns_msg = DnsMessage::decode(buffer, rq_id);
+    if (dns_msg) {
+        std::string ip;
+        if (dns_msg->rr_a) { ip = dns_msg->rr_a->ip.to_string(); }
+        else if (dns_msg->rr_aaaa) { ip = dns_msg->rr_aaaa->ip.to_string(); }
+
+        for (const auto &srv : dns_msg->rr_srv) {
+            if (srv.service == service_dn) {
+                replyfn(std::move(ip), std::move(srv.hostname), std::move(srv.name));
+            }
+        }
+    }
+}
+
+void Bonjour::priv::lookup_perform()
+{
+    const auto brq = BonjourRequest::make(service, protocol);
+    if (!brq) {
+        return;
+    }
+
+    auto self = this;
+    rq_id = brq->id;
 
     try {
         boost::asio::io_service io_service;
@@ -420,20 +507,95 @@ void pokus()
         socket.open(udp::v4());
         socket.set_option(udp::socket::reuse_address(true));
         udp::endpoint mcast(BonjourRequest::MCAST_IP4, BonjourRequest::MCAST_PORT);
-        socket.send_to(asio::buffer(brq.data), mcast);
+        socket.send_to(asio::buffer(brq->data), mcast);
 
-        std::vector<char> buffer(DnsMessage::MAX_SIZE);
-        size_t reply_length = socket.receive(asio::buffer(buffer, buffer.size()));
-        std::cerr << "Received reply: " << reply_length << std::endl;
+        bool timeout = false;
+        asio::deadline_timer timer(io_service);
+        timer.expires_from_now(boost::posix_time::seconds(10));
+        timer.async_wait([=, &timeout](const error_code &error) {
+            timeout = true;
+            if (self->completefn) {
+                self->completefn();
+            }
+        });
 
-        // TODO: Timed reading:
-        // https://stackoverflow.com/questions/291871/how-to-set-a-timeout-on-blocking-sockets-in-boost-asio
-        // http://www.ridgesolutions.ie/index.php/2012/12/13/boost-c-read-from-serial-port-with-timeout-example/
-        // https://gist.github.com/snaewe/1192479
+        const auto recv_handler = [=](const error_code &error, size_t bytes) {
+            self->udp_receive(error, bytes);
+        };
+        socket.async_receive(asio::buffer(buffer, buffer.size()), recv_handler);
+
+        while (io_service.run_one()) {
+            if (timeout) {
+                socket.cancel();
+            } else {
+                buffer.resize(DnsMessage::MAX_SIZE);
+                socket.async_receive(asio::buffer(buffer, buffer.size()), recv_handler);
+            }
+        }
     } catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
     }
 }
+
+
+// API - public part
+
+Bonjour::Bonjour(std::string service, std::string protocol) :
+    p(new priv(std::move(service), std::move(protocol)))
+{}
+
+Bonjour::Bonjour(Bonjour &&other) : p(std::move(other.p)) {}
+
+Bonjour::~Bonjour()
+{
+    if (p && p->io_thread.joinable()) {
+        p->io_thread.detach();
+    }
+}
+
+Bonjour& Bonjour::set_timeout(unsigned timeout)
+{
+    if (p) { p->timeout = timeout; }
+    return *this;
+}
+
+Bonjour& Bonjour::on_reply(ReplyFn fn)
+{
+    if (p) { p->replyfn = std::move(fn); }
+    return *this;
+}
+
+Bonjour& Bonjour::on_complete(CompleteFn fn)
+{
+    if (p) { p->completefn = std::move(fn); }
+    return *this;
+}
+
+Bonjour::Ptr Bonjour::lookup()
+{
+    auto self = std::make_shared<Bonjour>(std::move(*this));
+
+    if (self->p) {
+        auto io_thread = std::thread([self](){
+                self->p->lookup_perform();
+            });
+        self->p->io_thread = std::move(io_thread);
+    }
+
+    return self;
+}
+
+
+void Bonjour::pokus()   // XXX
+{
+    // auto bonjour = Bonjour("http")
+    //     .set_timeout(15)
+    //     .on_reply([](std::string ip, std::string host, std::string service_name) {
+    //         std::cerr << "MDNS: " << ip << " = " << host << " : " << service_name << std::endl;
+    //     })
+    //     .on_complete([](){
+    //         std::cerr << "MDNS lookup complete" << std::endl;
+    //     })
+    //     .lookup();
 }
 
 

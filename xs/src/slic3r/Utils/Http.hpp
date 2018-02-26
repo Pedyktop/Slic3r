@@ -16,8 +16,8 @@ private:
     struct priv;
 public:
     typedef std::shared_ptr<Http> Ptr;
-    typedef std::function<void(std::string, unsigned)> CompleteFn;
-    typedef std::function<void(std::string, std::string, unsigned)> ErrorFn;
+    typedef std::function<void(std::string /* body */, unsigned /* http_status */)> CompleteFn;
+    typedef std::function<void(std::string /* body */, std::string /* error */, unsigned /* http_status */)> ErrorFn;
 
     Http(Http &&other);
 

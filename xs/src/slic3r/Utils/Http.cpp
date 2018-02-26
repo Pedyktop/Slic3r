@@ -13,9 +13,6 @@
 #include "Bonjour.hpp"   // XXX
 
 
-// XXX: style
-
-
 namespace Slic3r {
 
 
