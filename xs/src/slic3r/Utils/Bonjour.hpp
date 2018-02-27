@@ -12,25 +12,25 @@ namespace Slic3r {
 /// Bonjour lookup
 class Bonjour : public std::enable_shared_from_this<Bonjour> {
 private:
-    struct priv;
+	struct priv;
 public:
-    typedef std::shared_ptr<Bonjour> Ptr;
-    typedef std::function<void(std::string /* IP */, std::string /* host */, std::string /* service_name */)> ReplyFn;
-    typedef std::function<void()> CompleteFn;
+	typedef std::shared_ptr<Bonjour> Ptr;
+	typedef std::function<void(std::string /* IP */, std::string /* host */, std::string /* service_name */)> ReplyFn;
+	typedef std::function<void()> CompleteFn;
 
-    Bonjour(std::string service, std::string protocol = "tcp");
-    Bonjour(Bonjour &&other);
-    ~Bonjour();
+	Bonjour(std::string service, std::string protocol = "tcp");
+	Bonjour(Bonjour &&other);
+	~Bonjour();
 
-    Bonjour& set_timeout(unsigned timeout);
-    Bonjour& on_reply(ReplyFn fn);
-    Bonjour& on_complete(CompleteFn fn);
+	Bonjour& set_timeout(unsigned timeout);
+	Bonjour& on_reply(ReplyFn fn);
+	Bonjour& on_complete(CompleteFn fn);
 
-    Ptr lookup();
+	Ptr lookup();
 
-    static void pokus();    // XXX: remove
+	static void pokus();    // XXX: remove
 private:
-    std::unique_ptr<priv> p;
+	std::unique_ptr<priv> p;
 };
 
 
