@@ -12,7 +12,9 @@ and cannot provide guidance.
 
 First, download and upnack our Perl + wxWidgets binary distribution:
 
-  - TODO: links
+  - 32 bit, release mode: [wperl32-5.24.0-2018-03-02.7z](https://bintray.com/vojtechkral/Slic3r-PE/download_file?file_path=wperl32-5.24.0-2018-03-02.7z)
+  - 64 bit, release mode: [wperl64-5.24.0-2018-03-02.7z](https://bintray.com/vojtechkral/Slic3r-PE/download_file?file_path=wperl64-5.24.0-2018-03-02.7z)
+  - 64 bit, release mode + debug symbols: [wperl64d-5.24.0-2018-03-02.7z](https://bintray.com/vojtechkral/Slic3r-PE/download_file?file_path=wperl64d-5.24.0-2018-03-02.7z)
 
 It is recommended to unpack this package into `C:\`.
 
@@ -24,7 +26,8 @@ Apart from wxWidgets and Perl, you will also need additional dependencies:
 
 We have prepared a binary package of the listed libraries:
 
-  - TODO: links
+  - 32 bit: [slic3r-destdir-32.7z](https://bintray.com/vojtechkral/Slic3r-PE/download_file?file_path=slic3r-destdir-32.7z)
+  - 64 bit: [slic3r-destdir-64.7z](https://bintray.com/vojtechkral/Slic3r-PE/download_file?file_path=slic3r-destdir-64.7z)
 
 It is recommended you unpack this package into `C:\local\` as the environment
 setup script expects it there.
