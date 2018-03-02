@@ -9,9 +9,8 @@
 # The default DESTDIR is ~/slic3r-destdir
 # If the DESTDIR doesn't exits, the makefile tries to create it
 #
-# To pass the DESTDIR path along to cmake, set the CMAKE_PREFIX_PATH env variable to:
-#
-#     CMAKE_PREFIX_PATH=$DESTDIR/usr/local
+# To pass the DESTDIR path along to cmake, set the use CMAKE_PREFIX_PATH variable
+# and set it to $DESTDIR/usr/local
 #
 # You can also customize the NPROC variable in the same way to configure the number
 # of cores the build process uses. By default this is set to what the `nproc` command says.

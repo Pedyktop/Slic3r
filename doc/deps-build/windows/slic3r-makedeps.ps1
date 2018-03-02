@@ -20,6 +20,8 @@
 #
 #     powershell .\slic3r-makedeps.ps1 -destdir C:\foo\bar
 #
+# To pass the $destdir path along to cmake, set the use CMAKE_PREFIX_PATH variable
+# and set it to $destdir\usr\local
 #
 # Script requirements: PowerShell 3.0, .NET 4.5
 #
